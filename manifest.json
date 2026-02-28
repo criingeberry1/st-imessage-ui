@@ -1,7 +1,9 @@
 {
     "name": "iMessage UI for Roleplay",
     "description": "Парсит теги <imessage> и превращает их в красивые CSS-пузыри чата.",
-    "version": "1.0.0",
-    "author": "your insomnia",
+    "version": "1.0.1",
+    "author": "insomnia",
+    "js": "index.js",
+    "css": "style.css",
     "provides": ["imessage-ui"]
 }
