@@ -42,21 +42,31 @@ const parseIMessageTags = (htmlText) => {
         let messages = [];
         lines.forEach(line => {
             let pure = line.replace(/<[^>]*>/g, '').trim();
-            const regex = /([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})'\s*(!)?\s*(?:\((file|voice|photo|media)(?::\s*(.*?))?\))?\s* : \s*(.*)/i;
+            // ИСПРАВЛЕННАЯ РЕГУЛЯРКА (убраны лишние пробелы перед двоеточием)
+            const regex = /([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})'\s*(!)?\s*(?:\((file|voice|photo|media)(?::\s*(.*?))?\))?\s*:\s*(.*)/i;
             const m = pure.match(regex);
-            if (m) messages.push({ sender: m[1], time: m[2], err: !!m[3], type: m[4], data: m[5], text: m[6] });
-            else if (pure) messages.push({ system: pure });
+            if (m) {
+                messages.push({ sender: m[1], time: m[2], err: !!m[3], type: m[4], data: m[5], text: m[6] });
+            } else if (pure) {
+                messages.push({ system: pure });
+            }
         });
+        
         let html = '<div class="ios-chat-container"><div class="ios-chat-header">iMessage</div><div class="ios-chat-messages">';
         messages.forEach((msg, i) => {
-            if (msg.system) { html += `<div style="text-align:center; opacity:0.4; font-size:0.75em; margin:8px 0;">${msg.system}</div>`; return; }
+            if (msg.system) {
+                html += `<div style="text-align:center; opacity:0.4; font-size:0.75em; margin:8px 0;">${msg.system}</div>`;
+                return;
+            }
             const isMe = msg.sender.toLowerCase() === 'me';
             const isPrevSame = i > 0 && messages[i-1].sender === msg.sender;
             const isNextSame = i < messages.length - 1 && messages[i+1].sender === msg.sender;
+            
             let attach = '';
             if (msg.type === 'file') attach = `<div class="file-card"><i class="fa-solid fa-file-lines"></i><div style="display:flex; flex-direction:column; min-width:0;"><span style="font-weight:500; font-size:0.9em; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:150px;">${msg.data || 'file.pdf'}</span><span style="font-size:0.75em; opacity:0.5;">${getRandomSize()}</span></div></div>`;
             else if (msg.type === 'voice') attach = `<div class="voice-player"><span class="play-btn">▷</span><div class="timeline-line"><div class="timeline-dot"></div></div><span style="font-size:0.7em; opacity:0.5;">0:12</span></div>` + (msg.data ? `<span class="transcription-box"><i class="fa-solid fa-quote-left" style="margin-right:6px; opacity:0.5;"></i>${msg.data}</span>` : '');
             else if (msg.type === 'photo' || msg.type === 'media') attach = `<div style="width:200px; height:120px; background:rgba(255,255,255,0.05); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:2em; opacity:0.3; margin-bottom:6px; border:1px dashed rgba(255,255,255,0.1);"><i class="fa-solid fa-${msg.type === 'photo' ? 'image' : 'video'}"></i></div>`;
+            
             html += `<div class="imessage-line ${isPrevSame ? 'consecutive' : ''} ${isNextSame ? 'no-tail' : ''}" data-sender="${isMe ? 'Me' : msg.sender}">${!isMe && !isPrevSame ? `<div class="imessage-sender-name">${msg.sender}</div>` : ''}<div class="imessage-bubble-wrapper"><div class="imessage-bubble">${attach}${msg.text ? `<div>${msg.text}</div>` : ''}<span class="imessage-time">${msg.time}</span></div>${isMe && msg.err ? '<div class="imessage-error-icon">!</div>' : ''}</div>${isMe && msg.err ? '<div class="imessage-error-text">Не доставлено</div>' : ''}</div>`;
         });
         return html + '</div></div>';
