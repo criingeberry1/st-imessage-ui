@@ -1,32 +1,36 @@
 import { eventSource, event_types } from '../../../../script.js';
 
-// Главная функция парсинга
 const parseIMessageTags = (htmlText) => {
-    // 1. Убиваем невидимый пробел (если нейронка его всё-таки сгенерит)
+    // 1. Убиваем шакальные пробелы
     let cleanText = htmlText.replace(/ㅤ/g, ' ');
 
-    // 2. Ищем теги <imessage> или экранированные &lt;imessage&gt;
+    // 2. Ищем блок imessage
     const blockRegex = /(&lt;|<)imessage(&gt;|>)([\s\S]*?)(&lt;|<)\/imessage(&gt;|>)/gi;
 
     return cleanText.replace(blockRegex, (match, open1, open2, content) => {
-        // Разбиваем контент на строки
-        const lines = content.split('\n').filter(line => line.trim() !== '');
+        // Добавляем лог в консоль, чтобы точно видеть, что скрипт поймал тег
+        console.log("[iMessage UI] Нашел блок:", content);
+
+        // 3. Вычищаем теги <p> и </p>, которые добавляет ST
+        let cleanContent = content.replace(/<\/?p>/gi, '').trim();
+        
+        // 4. Разбиваем строки по тегу <br> или \n
+        const lines = cleanContent.split(/(?:<br\s*\/?>|\n)/i).filter(line => line.trim() !== '');
         
         let resultHtml = '<div class="ios-chat-container"><div class="ios-chat-header">iMessage</div><div class="ios-chat-messages">';
 
         lines.forEach(line => {
-            // Ищем паттерн: Имя 'Время': Сообщение
-            // Поддерживает кириллицу, латиницу, цифры и дефисы в имени
-            const lineRegex = /^([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})':\s*(.*)$/;
-            const matchLine = line.match(lineRegex);
+            // Убираем вообще любые остаточные HTML-теги из строки перед чтением
+            let pureText = line.replace(/<[^>]*>/g, '').trim();
+            
+            // 5. Бронебойная регулярка (ищет Имя 'Время': Текст)
+            const lineRegex = /([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})'\s*:\s*(.*)/i;
+            const matchLine = pureText.match(lineRegex);
 
             if (matchLine) {
                 const sender = matchLine[1];
                 const time = matchLine[2];
-                // Очищаем сообщение от возможных <br>, которые добавил парсер ST
-                const msg = matchLine[3].replace(/<br>/g, '');
-                
-                // Проверяем, мы ли это
+                const msg = matchLine[3];
                 const isMe = sender.toLowerCase() === 'me';
 
                 resultHtml += `
@@ -38,13 +42,9 @@ const parseIMessageTags = (htmlText) => {
                         </div>
                     </div>
                 `;
-            } else {
-                // Если строка не попала под формат (например, просто текст внутри тегов)
-                // Отрисуем её как системное уведомление или просто текст
-                const cleanLine = line.replace(/<br>/g, '');
-                if (cleanLine.trim()) {
-                    resultHtml += `<div class="imessage-line" style="align-items: center; opacity: 0.5; font-size: 0.8em; margin: 5px 0;">${cleanLine}</div>`;
-                }
+            } else if (pureText) {
+                // Если формат не совпал, выводим просто как системный текст по центру
+                resultHtml += `<div class="imessage-line" style="align-items: center; opacity: 0.5; font-size: 0.8em; margin: 5px 0;">${pureText}</div>`;
             }
         });
 
@@ -53,17 +53,13 @@ const parseIMessageTags = (htmlText) => {
     });
 };
 
-// Функция перерисовки сообщений
 const renderIMessages = () => {
-    // Проходимся по всем отрендеренным блокам текста в чате
     $('.mes_text').each(function() {
         let currentHtml = $(this).html();
         
-        // Оптимизация: парсим только если видим ключевое слово
-        if (currentHtml.includes('imessage&gt;') || currentHtml.includes('imessage>')) {
+        // Переводим в нижний регистр для проверки, чтобы не пропустить из-за капса
+        if (currentHtml.toLowerCase().includes('imessage&gt;') || currentHtml.toLowerCase().includes('imessage>')) {
             let newHtml = parseIMessageTags(currentHtml);
-            
-            // Заменяем HTML, только если он реально изменился
             if (currentHtml !== newHtml) {
                 $(this).html(newHtml);
             }
@@ -71,15 +67,15 @@ const renderIMessages = () => {
     });
 };
 
-// Подключаем скрипт к событиям SillyTavern
 jQuery(async () => {
-    // Вызываем парсер при загрузке чата и при любых изменениях сообщений
+    console.log("[iMessage UI] Скрипт запущен и готов к работе!");
+    
     eventSource.on(event_types.CHAT_CHANGED, renderIMessages);
     eventSource.on(event_types.MESSAGE_RECEIVED, renderIMessages);
     eventSource.on(event_types.USER_MESSAGE_RENDERED, renderIMessages);
     eventSource.on(event_types.MESSAGE_SWIPED, renderIMessages);
     eventSource.on(event_types.MESSAGE_UPDATED, renderIMessages);
     
-    // Единоразовый проход при старте скрипта
-    setTimeout(renderIMessages, 500);
+    // Даем ST секунду на то, чтобы отрендерить весь чат при старте
+    setTimeout(renderIMessages, 1000);
 });
