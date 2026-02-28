@@ -125,13 +125,26 @@ const renderIMessages = () => {
 
 jQuery(async () => {
     injectCSS();
-    console.warn("🚀🚀🚀 IMESSAGE EXTENSION (СИНИЕ ОШИБКИ) РАБОТАЕТ! 🚀🚀🚀");
+    console.warn("🚀🚀🚀 IMESSAGE EXTENSION (С ФИКСАЦИЕЙ РЕНДЕРА) РАБОТАЕТ! 🚀🚀🚀");
     
-    eventSource.on(event_types.CHAT_CHANGED, renderIMessages);
-    eventSource.on(event_types.MESSAGE_RECEIVED, renderIMessages);
-    eventSource.on(event_types.USER_MESSAGE_RENDERED, renderIMessages);
-    eventSource.on(event_types.MESSAGE_SWIPED, renderIMessages);
-    eventSource.on(event_types.MESSAGE_UPDATED, renderIMessages);
+    // Создаем обертку с задержкой, чтобы дождаться конца отрисовки Markdown
+    const delayedRender = () => {
+        setTimeout(renderIMessages, 100); 
+    };
+
+    // Основные события
+    eventSource.on(event_types.CHAT_CHANGED, delayedRender);
+    eventSource.on(event_types.MESSAGE_RECEIVED, delayedRender);
+    eventSource.on(event_types.USER_MESSAGE_RENDERED, delayedRender);
+    eventSource.on(event_types.MESSAGE_SWIPED, delayedRender);
+    eventSource.on(event_types.MESSAGE_UPDATED, delayedRender);
     
+    // САМОЕ ВАЖНОЕ: Ловим момент, когда нейронка закончила рендерить своё сообщение
+    eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, delayedRender);
+    
+    // Дополнительный хук для стриминга (на случай, если сообщение долго печатается)
+    eventSource.on('streaming_finished', delayedRender);
+    
+    // Единоразовый проход при старте
     setTimeout(renderIMessages, 1000);
 });
