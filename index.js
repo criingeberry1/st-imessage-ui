@@ -1,30 +1,42 @@
-console.error("!!! Я НОВЫЙ ФАЙЛ И Я РАБОТАЮ !!!");
 import { eventSource, event_types } from '../../../../script.js';
 
+const injectCSS = () => {
+    if ($('#imessage-style').length === 0) {
+        const style = `
+        <style id="imessage-style">
+            .ios-chat-container { background: #1c1c1e; border-radius: 20px; padding: 15px; margin: 15px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: white; max-width: 450px; border: 1px solid #333; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+            .ios-chat-header { text-align: center; font-size: 0.9em; color: #8e8e93; margin-bottom: 15px; font-weight: 600; }
+            .ios-chat-messages { display: flex; flex-direction: column; gap: 8px; }
+            .imessage-line { display: flex; flex-direction: column; width: 100%; margin-bottom: 4px; }
+            .imessage-sender-name { font-size: 0.7em; color: #8e8e93; margin: 0 12px 4px 12px; display: none; }
+            .imessage-bubble { padding: 10px 14px; max-width: 85%; word-wrap: break-word; font-size: 0.95em; line-height: 1.3; }
+            .imessage-line[data-sender="Me"] { align-items: flex-end; }
+            .imessage-line[data-sender="Me"] .imessage-bubble { background: #0a84ff; color: white; border-radius: 20px 20px 5px 20px; }
+            .imessage-line:not([data-sender="Me"]) { align-items: flex-start; }
+            .imessage-line:not([data-sender="Me"]) .imessage-bubble { background: #2c2c2e; color: white; border-radius: 20px 20px 20px 5px; }
+            .imessage-line:not([data-sender="Me"]) .imessage-sender-name { display: block; }
+            .imessage-time { display: inline-block; font-size: 0.7em; opacity: 0.6; margin-left: 8px; float: right; margin-top: 5px; }
+        </style>`;
+        $('head').append(style);
+    }
+};
+
 const parseIMessageTags = (htmlText) => {
-    // 1. Убиваем шакальные пробелы
     let cleanText = htmlText.replace(/ㅤ/g, ' ');
 
-    // 2. Ищем блок imessage
-    const blockRegex = /(&lt;|<)imessage(&gt;|>)([\s\S]*?)(&lt;|<)\/imessage(&gt;|>)/gi;
+    // Ищем ФИГУРНЫЕ скобки {imessage} ... {/imessage}
+    const blockRegex = /\{\s*imessage\s*\}([\s\S]*?)\{\s*\/imessage\s*\}/gi;
 
-    return cleanText.replace(blockRegex, (match, open1, open2, content) => {
-        // Добавляем лог в консоль, чтобы точно видеть, что скрипт поймал тег
-        console.log("[iMessage UI] Нашел блок:", content);
-
-        // 3. Вычищаем теги <p> и </p>, которые добавляет ST
-        let cleanContent = content.replace(/<\/?p>/gi, '').trim();
+    return cleanText.replace(blockRegex, (match, content) => {
+        console.warn("[iMessage UI] НАШЕЛ БЛОК с фигурными скобками! Рендерим...");
         
-        // 4. Разбиваем строки по тегу <br> или \n
+        let cleanContent = content.replace(/<\/?p>/gi, '').trim();
         const lines = cleanContent.split(/(?:<br\s*\/?>|\n)/i).filter(line => line.trim() !== '');
         
         let resultHtml = '<div class="ios-chat-container"><div class="ios-chat-header">iMessage</div><div class="ios-chat-messages">';
 
         lines.forEach(line => {
-            // Убираем вообще любые остаточные HTML-теги из строки перед чтением
             let pureText = line.replace(/<[^>]*>/g, '').trim();
-            
-            // 5. Бронебойная регулярка (ищет Имя 'Время': Текст)
             const lineRegex = /([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})'\s*:\s*(.*)/i;
             const matchLine = pureText.match(lineRegex);
 
@@ -44,7 +56,6 @@ const parseIMessageTags = (htmlText) => {
                     </div>
                 `;
             } else if (pureText) {
-                // Если формат не совпал, выводим просто как системный текст по центру
                 resultHtml += `<div class="imessage-line" style="align-items: center; opacity: 0.5; font-size: 0.8em; margin: 5px 0;">${pureText}</div>`;
             }
         });
@@ -57,9 +68,7 @@ const parseIMessageTags = (htmlText) => {
 const renderIMessages = () => {
     $('.mes_text').each(function() {
         let currentHtml = $(this).html();
-        
-        // Переводим в нижний регистр для проверки, чтобы не пропустить из-за капса
-        if (currentHtml.toLowerCase().includes('imessage&gt;') || currentHtml.toLowerCase().includes('imessage>')) {
+        if (currentHtml.toLowerCase().includes('imessage')) {
             let newHtml = parseIMessageTags(currentHtml);
             if (currentHtml !== newHtml) {
                 $(this).html(newHtml);
@@ -69,7 +78,8 @@ const renderIMessages = () => {
 };
 
 jQuery(async () => {
-    console.log("[iMessage UI] Скрипт запущен и готов к работе!");
+    injectCSS();
+    console.warn("🚀🚀🚀 IMESSAGE EXTENSION (ФИГУРНЫЕ СКОБКИ) РАБОТАЕТ! 🚀🚀🚀");
     
     eventSource.on(event_types.CHAT_CHANGED, renderIMessages);
     eventSource.on(event_types.MESSAGE_RECEIVED, renderIMessages);
@@ -77,6 +87,5 @@ jQuery(async () => {
     eventSource.on(event_types.MESSAGE_SWIPED, renderIMessages);
     eventSource.on(event_types.MESSAGE_UPDATED, renderIMessages);
     
-    // Даем ST секунду на то, чтобы отрендерить весь чат при старте
     setTimeout(renderIMessages, 1000);
 });
