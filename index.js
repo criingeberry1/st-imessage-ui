@@ -10,32 +10,41 @@ const injectCSS = () => {
             .imessage-line { display: flex; flex-direction: column; width: 100%; margin-bottom: 2px; }
             .imessage-line.consecutive { margin-top: -4px; }
             .imessage-sender-name { font-size: 0.75em; color: #8e8e93; margin: 0 12px 4px 12px; display: none; }
-            
-            /* Обертка для пузыря и иконки ошибки */
             .imessage-bubble-wrapper { display: flex; align-items: center; gap: 6px; }
             .imessage-line[data-sender="Me"] .imessage-bubble-wrapper { justify-content: flex-end; }
+            .imessage-bubble { padding: 10px 14px; max-width: 85%; word-wrap: break-word; font-size: 0.95em; line-height: 1.3; position: relative; }
             
-            .imessage-bubble { padding: 10px 14px; max-width: 85%; word-wrap: break-word; font-size: 0.95em; line-height: 1.3; }
-            
-            /* === ИСХОДЯЩИЕ (Me) === */
-            .imessage-line[data-sender="Me"] { align-items: flex-end; }
-            .imessage-line[data-sender="Me"] .imessage-bubble { background: #0a84ff; color: white; border-radius: 20px 20px 5px 20px; }
+            .imessage-line[data-sender="Me"] .imessage-bubble { background: #0a84ff; border-radius: 20px 20px 5px 20px; }
             .imessage-line[data-sender="Me"].no-tail .imessage-bubble { border-radius: 20px; }
-            
-            /* === ВХОДЯЩИЕ (Остальные) === */
-            .imessage-line:not([data-sender="Me"]) { align-items: flex-start; }
-            .imessage-line:not([data-sender="Me"]) .imessage-bubble { background: #2c2c2e; color: white; border-radius: 20px 20px 20px 5px; }
-            .imessage-line:not([data-sender="Me"]) .imessage-sender-name { display: block; }
+            .imessage-line:not([data-sender="Me"]) .imessage-bubble { background: #2c2c2e; border-radius: 20px 20px 20px 5px; }
             .imessage-line:not([data-sender="Me"]).no-tail .imessage-bubble { border-radius: 20px; }
+            .imessage-line:not([data-sender="Me"]) .imessage-sender-name { display: block; }
             
             .imessage-time { display: inline-block; font-size: 0.7em; opacity: 0.6; margin-left: 8px; float: right; margin-top: 5px; }
+            .imessage-error-icon { color: #ff3b30; border: 1.5px solid #ff3b30; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; }
+            .imessage-error-text { color: #ff3b30; font-size: 0.7em; margin-top: 2px; margin-right: 24px; font-weight: 500; text-align: right; }
+
+            .imessage-attachment { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,0.1); padding: 8px; border-radius: 12px; margin-bottom: 5px; }
+            .attachment-icon { font-size: 1.2em; opacity: 0.9; }
+            .attachment-info { display: flex; flex-direction: column; font-size: 0.8em; }
+            .attachment-filename { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 150px; }
+            .attachment-subtext { font-size: 0.75em; opacity: 0.5; }
+
+            .voice-controls { display: flex; align-items: center; gap: 8px; width: 160px; padding: 4px 0; }
+            .voice-wave { flex-grow: 1; height: 12px; background: repeating-linear-gradient(90deg, #fff 0, #fff 1px, transparent 1px, transparent 3px); opacity: 0.3; }
+            .transcription { font-style: italic; font-size: 0.85em; opacity: 0.8; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); margin-top: 4px; display: block; line-height: 1.2; }
             
-            /* Стили ошибки */
-            .imessage-error-icon { color: #ff3b30; border: 1.5px solid #ff3b30; border-radius: 50%; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; flex-shrink: 0; box-sizing: border-box; }
-            .imessage-error-text { color: #ff3b30; font-size: 0.7em; margin-top: 2px; margin-right: 24px; font-weight: 500; }
+            .media-placeholder { width: 180px; height: 100px; background: rgba(255,255,255,0.05); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 1.8em; opacity: 0.4; margin-bottom: 5px; border: 1px dashed rgba(255,255,255,0.2); }
         </style>`;
         $('head').append(style);
     }
+};
+
+// Хелпер для случайного размера файла
+const getRandomSize = () => {
+    const isMb = Math.random() > 0.7;
+    const val = isMb ? (Math.random() * 14 + 1).toFixed(1) + ' MB' : (Math.random() * 800 + 100).toFixed(0) + ' KB';
+    return val;
 };
 
 const parseIMessageTags = (htmlText) => {
@@ -49,8 +58,7 @@ const parseIMessageTags = (htmlText) => {
         let parsedMessages = [];
         lines.forEach(line => {
             let pureText = line.replace(/<[^>]*>/g, '').trim();
-            // Регулярка для отлова восклицательного знака перед двоеточием
-            const lineRegex = /([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})'\s*(!)?\s*:\s*(.*)/i;
+            const lineRegex = /([A-Za-zА-Яа-яЁё0-9_\-]+)\s*'(\d{2}:\d{2})'\s*(!)?\s*(?:\((file|voice|photo|media)(?::\s*(.*?))?\))?\s*:\s*(.*)/i;
             const matchLine = pureText.match(lineRegex);
 
             if (matchLine) {
@@ -59,7 +67,9 @@ const parseIMessageTags = (htmlText) => {
                     sender: matchLine[1],
                     time: matchLine[2],
                     isUndelivered: matchLine[3] === '!',
-                    msg: matchLine[4]
+                    attachType: matchLine[4],
+                    attachData: matchLine[5],
+                    msg: matchLine[6]
                 });
             } else if (pureText) {
                 parsedMessages.push({ type: 'system', text: pureText });
@@ -70,44 +80,51 @@ const parseIMessageTags = (htmlText) => {
 
         for (let i = 0; i < parsedMessages.length; i++) {
             const current = parsedMessages[i];
-            
-            if (current.type === 'msg') {
-                const isMe = current.sender.toLowerCase() === 'me';
-                const isUndelivered = isMe && current.isUndelivered;
-                
-                const prev = (i > 0 && parsedMessages[i-1].type === 'msg') ? parsedMessages[i-1] : null;
-                const next = (i < parsedMessages.length - 1 && parsedMessages[i+1].type === 'msg') ? parsedMessages[i+1] : null;
-                
-                const isConsecutivePrev = prev && prev.sender === current.sender;
-                const isConsecutiveNext = next && next.sender === current.sender;
-                
-                let classes = ['imessage-line'];
-                if (isConsecutivePrev) classes.push('consecutive');
-                if (isConsecutiveNext) classes.push('no-tail');
-                if (isUndelivered) classes.push('undelivered');
-
-                resultHtml += `
-                    <div class="${classes.join(' ')}" data-sender="${isMe ? 'Me' : current.sender}">
-                        ${!isMe && !isConsecutivePrev ? `<div class="imessage-sender-name">${current.sender}</div>` : ''}
-                        
-                        <div class="imessage-bubble-wrapper">
-                            <div class="imessage-bubble">
-                                ${current.msg}
-                                <span class="imessage-time">${current.time}</span>
-                            </div>
-                            ${isUndelivered ? '<div class="imessage-error-icon">!</div>' : ''}
-                        </div>
-                        ${isUndelivered ? '<div class="imessage-error-text">Не доставлено</div>' : ''}
-                        
-                    </div>
-                `;
-            } else {
+            if (current.type !== 'msg') {
                 resultHtml += `<div class="imessage-line" style="align-items: center; opacity: 0.5; font-size: 0.8em; margin: 5px 0;">${current.text}</div>`;
+                continue;
             }
-        }
 
-        resultHtml += '</div></div>';
-        return resultHtml;
+            const isMe = current.sender.toLowerCase() === 'me';
+            const prev = (i > 0 && parsedMessages[i-1].type === 'msg') ? parsedMessages[i-1] : null;
+            const next = (i < parsedMessages.length - 1 && parsedMessages[i+1].type === 'msg') ? parsedMessages[i+1] : null;
+            const isConsecutivePrev = prev && prev.sender === current.sender;
+            const isConsecutiveNext = next && next.sender === current.sender;
+            
+            let classes = ['imessage-line'];
+            if (isConsecutivePrev) classes.push('consecutive');
+            if (isConsecutiveNext) classes.push('no-tail');
+
+            let attachmentHtml = '';
+            if (current.attachType === 'file') {
+                attachmentHtml = `<div class="imessage-attachment"><i class="fa-solid fa-file-lines attachment-icon"></i><div class="attachment-info"><span class="attachment-filename">${current.attachData || 'document.pdf'}</span><span class="attachment-subtext">${getRandomSize()}</span></div></div>`;
+            } else if (current.attachType === 'voice') {
+                attachmentHtml = `<div class="voice-controls"><i class="fa-solid fa-play"></i><div class="voice-wave"></div><span class="attachment-subtext">0:12</span></div>`;
+                if (current.attachData && current.attachData.trim() !== '') {
+                    attachmentHtml += `<span class="transcription"><i class="fa-solid fa-quote-left" style="font-size:0.7em; margin-right:6px; opacity:0.4;"></i>${current.attachData}</span>`;
+                }
+            } else if (current.attachType === 'photo') {
+                attachmentHtml = `<div class="media-placeholder"><i class="fa-solid fa-image"></i></div>`;
+            } else if (current.attachType === 'media') {
+                attachmentHtml = `<div class="media-placeholder"><i class="fa-solid fa-video"></i></div>`;
+            }
+
+            resultHtml += `
+                <div class="${classes.join(' ')}" data-sender="${isMe ? 'Me' : current.sender}">
+                    ${!isMe && !isConsecutivePrev ? `<div class="imessage-sender-name">${current.sender}</div>` : ''}
+                    <div class="imessage-bubble-wrapper">
+                        <div class="imessage-bubble">
+                            ${attachmentHtml}
+                            ${current.msg ? `<span>${current.msg}</span>` : ''}
+                            <span class="imessage-time">${current.time}</span>
+                        </div>
+                        ${isMe && current.isUndelivered ? '<div class="imessage-error-icon">!</div>' : ''}
+                    </div>
+                    ${isMe && current.isUndelivered ? '<div class="imessage-error-text">Не доставлено</div>' : ''}
+                </div>
+            `;
+        }
+        return resultHtml + '</div></div>';
     });
 };
 
@@ -116,35 +133,18 @@ const renderIMessages = () => {
         let currentHtml = $(this).html();
         if (currentHtml.toLowerCase().includes('imessage')) {
             let newHtml = parseIMessageTags(currentHtml);
-            if (currentHtml !== newHtml) {
-                $(this).html(newHtml);
-            }
+            if (currentHtml !== newHtml) $(this).html(newHtml);
         }
     });
 };
 
 jQuery(async () => {
     injectCSS();
-    console.warn("🚀🚀🚀 IMESSAGE EXTENSION (С ФИКСАЦИЕЙ РЕНДЕРА) РАБОТАЕТ! 🚀🚀🚀");
-    
-    // Создаем обертку с задержкой, чтобы дождаться конца отрисовки Markdown
-    const delayedRender = () => {
-        setTimeout(renderIMessages, 100); 
-    };
-
-    // Основные события
+    const delayedRender = () => { setTimeout(renderIMessages, 150); };
     eventSource.on(event_types.CHAT_CHANGED, delayedRender);
     eventSource.on(event_types.MESSAGE_RECEIVED, delayedRender);
-    eventSource.on(event_types.USER_MESSAGE_RENDERED, delayedRender);
-    eventSource.on(event_types.MESSAGE_SWIPED, delayedRender);
-    eventSource.on(event_types.MESSAGE_UPDATED, delayedRender);
-    
-    // САМОЕ ВАЖНОЕ: Ловим момент, когда нейронка закончила рендерить своё сообщение
     eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, delayedRender);
-    
-    // Дополнительный хук для стриминга (на случай, если сообщение долго печатается)
-    eventSource.on('streaming_finished', delayedRender);
-    
-    // Единоразовый проход при старте
+    eventSource.on(event_types.USER_MESSAGE_RENDERED, delayedRender);
+    eventSource.on(event_types.MESSAGE_UPDATED, delayedRender);
     setTimeout(renderIMessages, 1000);
 });
