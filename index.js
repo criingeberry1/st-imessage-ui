@@ -1,3 +1,4 @@
+console.error("!!! Я НОВЫЙ ФАЙЛ И Я РАБОТАЮ !!!");
 import { eventSource, event_types } from '../../../../script.js';
 
 const parseIMessageTags = (htmlText) => {
